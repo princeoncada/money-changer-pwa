@@ -57,62 +57,94 @@ export function calculateDailyTotals(date: string, records: Transaction[]): Dail
 }
 
 export function calculateIncomeReports(records: Transaction[]): CurrencyIncomeReport[] {
-  const byCurrencyMap = new Map<
-    string,
-    {
-      totalBoughtAmount: number;
-      totalBuyPhp: number;
-      totalSoldAmount: number;
-      totalSellPhp: number;
-    }
-  >();
+  type CurrencyRecord = Transaction & { inputOrder: number };
+  type Lot = { remainingAmount: number; rate: number };
+  const byCurrencyMap = new Map<string, CurrencyRecord[]>();
 
-  for (const record of records) {
+  records.forEach((record, inputOrder) => {
     const currency = record.currency.toUpperCase();
-    const current = byCurrencyMap.get(currency) ?? {
-      totalBoughtAmount: 0,
-      totalBuyPhp: 0,
-      totalSoldAmount: 0,
-      totalSellPhp: 0
-    };
-
-    if (record.transactionType === "BUY") {
-      current.totalBoughtAmount += record.currencyAmount;
-      current.totalBuyPhp += record.totalPhp;
-    } else {
-      current.totalSoldAmount += record.currencyAmount;
-      current.totalSellPhp += record.totalPhp;
-    }
-
-    byCurrencyMap.set(currency, current);
-  }
+    byCurrencyMap.set(currency, [...(byCurrencyMap.get(currency) ?? []), { ...record, inputOrder }]);
+  });
 
   return Array.from(byCurrencyMap.entries())
-    .map(([currency, totals]) => {
-      const averageBuyRate =
-        totals.totalBoughtAmount > 0 ? totals.totalBuyPhp / totals.totalBoughtAmount : null;
-      const matchedSoldAmount = Math.min(totals.totalSoldAmount, totals.totalBoughtAmount);
-      const averageSellRateForMatched =
-        totals.totalSoldAmount > 0 ? totals.totalSellPhp / totals.totalSoldAmount : 0;
-      const matchedBuyCostPhp = averageBuyRate !== null ? matchedSoldAmount * averageBuyRate : null;
-      const matchedSellRevenuePhp =
-        averageBuyRate !== null ? matchedSoldAmount * averageSellRateForMatched : null;
-      const estimatedIncomePhp =
-        matchedBuyCostPhp !== null && matchedSellRevenuePhp !== null
-          ? matchedSellRevenuePhp - matchedBuyCostPhp
-          : null;
+    .map(([currency, currencyRecords]) => {
+      const sortedRecords = [...currencyRecords].sort((a, b) => {
+        const dateOrder = a.date.localeCompare(b.date);
+        if (dateOrder !== 0) return dateOrder;
+        if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
+          return a.createdAt.localeCompare(b.createdAt);
+        }
+        return a.inputOrder - b.inputOrder;
+      });
+
+      const buyLots: Lot[] = [];
+      const sellLots: Lot[] = [];
+      let totalBoughtAmount = 0;
+      let totalBuyPhp = 0;
+      let totalSoldAmount = 0;
+      let totalSellPhp = 0;
+      let matchedSoldAmount = 0;
+      let matchedBuyCostPhp = 0;
+      let matchedSellRevenuePhp = 0;
+      let estimatedIncomePhp = 0;
+
+      function matchLots(incoming: Lot, queue: Lot[], incomeMultiplier: 1 | -1) {
+        while (incoming.remainingAmount > 0 && queue.length > 0) {
+          const lot = queue[0];
+          const matchedAmount = Math.min(incoming.remainingAmount, lot.remainingAmount);
+          const buyRate = incomeMultiplier === 1 ? lot.rate : incoming.rate;
+          const sellRate = incomeMultiplier === 1 ? incoming.rate : lot.rate;
+
+          matchedSoldAmount += matchedAmount;
+          matchedBuyCostPhp += buyRate * matchedAmount;
+          matchedSellRevenuePhp += sellRate * matchedAmount;
+          estimatedIncomePhp += (sellRate - buyRate) * matchedAmount;
+
+          incoming.remainingAmount -= matchedAmount;
+          lot.remainingAmount -= matchedAmount;
+
+          if (lot.remainingAmount <= 0) queue.shift();
+        }
+      }
+
+      for (const record of sortedRecords) {
+        const lot = { remainingAmount: record.currencyAmount, rate: record.rate };
+
+        if (record.transactionType === "BUY") {
+          totalBoughtAmount += record.currencyAmount;
+          totalBuyPhp += record.totalPhp;
+          matchLots(lot, sellLots, -1);
+          if (lot.remainingAmount > 0) buyLots.push(lot);
+        } else {
+          totalSoldAmount += record.currencyAmount;
+          totalSellPhp += record.totalPhp;
+          matchLots(lot, buyLots, 1);
+          if (lot.remainingAmount > 0) sellLots.push(lot);
+        }
+      }
+
+      const hasMatchedLots = matchedSoldAmount > 0;
+      const roundedMatchedBuyCostPhp = roundMoney(matchedBuyCostPhp);
+      const roundedMatchedSellRevenuePhp = roundMoney(matchedSellRevenuePhp);
 
       return {
         currency,
-        ...totals,
-        averageBuyRate,
+        totalBoughtAmount,
+        totalBuyPhp,
+        totalSoldAmount,
+        totalSellPhp,
+        averageBuyRate: hasMatchedLots ? roundedMatchedBuyCostPhp / matchedSoldAmount : null,
         matchedSoldAmount,
-        matchedBuyCostPhp,
-        matchedSellRevenuePhp,
-        estimatedIncomePhp,
-        unmatchedBuyAmount: Math.max(totals.totalBoughtAmount - totals.totalSoldAmount, 0),
-        unmatchedSellAmount: Math.max(totals.totalSoldAmount - totals.totalBoughtAmount, 0)
+        matchedBuyCostPhp: hasMatchedLots ? roundedMatchedBuyCostPhp : null,
+        matchedSellRevenuePhp: hasMatchedLots ? roundedMatchedSellRevenuePhp : null,
+        estimatedIncomePhp: hasMatchedLots ? roundMoney(estimatedIncomePhp) : null,
+        unmatchedBuyAmount: buyLots.reduce((sum, lot) => sum + lot.remainingAmount, 0),
+        unmatchedSellAmount: sellLots.reduce((sum, lot) => sum + lot.remainingAmount, 0)
       };
     })
     .sort((a, b) => a.currency.localeCompare(b.currency));
+}
+
+function roundMoney(value: number) {
+  return Number(value.toFixed(2));
 }
