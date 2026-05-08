@@ -8,7 +8,14 @@ import {
   matchesDateFilter,
   type DateFilter
 } from "@/components/date-range-filter";
-import { Dialog } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -123,30 +130,38 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
         </div>
       )}
 
-      <Dialog
-        open={Boolean(deleteTarget)}
-        title="Delete record?"
-        description="This removes the record from this phone."
-        confirmLabel="Delete"
-        destructive
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-      >
-        {deleteTarget && (
-          <div className="rounded-md border border-border bg-muted/50 p-3 text-sm">
-            <DeleteDetail label="Customer" value={deleteTarget.customerName} />
-            <DeleteDetail label="Date" value={deleteTarget.date} />
-            <DeleteDetail label="OR Number" value={deleteTarget.orNumber} />
-            <DeleteDetail label="Type" value={deleteTarget.transactionType} />
-            <DeleteDetail label="Currency" value={deleteTarget.currency} />
-            <DeleteDetail label="Amount" value={formatNumber(deleteTarget.currencyAmount)} />
-            <DeleteDetail
-              label={deleteTarget.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"}
-              value={formatRate(deleteTarget.rate)}
-            />
-            <DeleteDetail label="Total PHP" value={formatPeso(deleteTarget.totalPhp)} />
-          </div>
-        )}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete record?</DialogTitle>
+            <DialogDescription>This removes the record from this phone.</DialogDescription>
+          </DialogHeader>
+
+          {deleteTarget && (
+            <div className="rounded-md border border-border bg-muted p-3 text-sm">
+              <DeleteDetail label="Customer" value={deleteTarget.customerName} />
+              <DeleteDetail label="Date" value={deleteTarget.date} />
+              <DeleteDetail label="OR Number" value={deleteTarget.orNumber} />
+              <DeleteDetail label="Type" value={deleteTarget.transactionType} />
+              <DeleteDetail label="Currency" value={deleteTarget.currency} />
+              <DeleteDetail label="Amount" value={formatNumber(deleteTarget.currencyAmount)} />
+              <DeleteDetail
+                label={deleteTarget.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"}
+                value={formatRate(deleteTarget.rate)}
+              />
+              <DeleteDetail label="Total PHP" value={formatPeso(deleteTarget.totalPhp)} />
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" className="w-full sm:w-auto" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

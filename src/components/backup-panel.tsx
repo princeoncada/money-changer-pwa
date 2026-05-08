@@ -5,7 +5,14 @@ import { ChangeEvent, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { transactionRouter } from "@/lib/local-api/transactions";
 import { todayLocal } from "@/lib/utils";
 import type { Transaction } from "@/types/transaction";
@@ -72,15 +79,25 @@ export function BackupPanel({ onChanged }: { onChanged: () => void }) {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={confirmClear}
-        title="Clear all records?"
-        description="This deletes every saved record from this phone. Export a backup first if needed."
-        confirmLabel="Clear"
-        destructive
-        onClose={() => setConfirmClear(false)}
-        onConfirm={clearAll}
-      />
+      <Dialog open={confirmClear} onOpenChange={(open) => !open && setConfirmClear(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear all records?</DialogTitle>
+            <DialogDescription>
+              This deletes every saved record from this phone. Export a backup first if needed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setConfirmClear(false)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" className="w-full sm:w-auto" onClick={clearAll}>
+              Clear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
