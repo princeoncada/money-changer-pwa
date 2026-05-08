@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { transactionRouter } from "@/lib/local-api/transactions";
 import { formatNumber, formatPeso, formatRate, normalizeText } from "@/lib/utils";
@@ -68,15 +68,16 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
       <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-soft">
         <div className="space-y-2">
           <Label>Search</Label>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
-            <Input
-              className="pl-10"
+          <InputGroup>
+            <InputGroupAddon>
+              <Search className="h-4 w-4 text-muted-foreground" />
+            </InputGroupAddon>
+            <InputGroupInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Customer or OR number"
             />
-          </div>
+          </InputGroup>
         </div>
       </div>
 
