@@ -54,7 +54,7 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
 
       <ReportSection title="By Currency">
         {totals.byCurrency.length > 0 ? (
-          <div className="overflow-x-auto rounded-md border border-border">
+          <div className="overflow-x-auto rounded-md border border-border bg-card">
             <Table className="min-w-[620px]">
               <TableHeader>
                 <TableRow>
@@ -148,7 +148,7 @@ function IncomeReportRow({ report }: { report: CurrencyIncomeReport }) {
 
 function ReportSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Card>
+    <Card className="border border-border bg-card shadow-sm">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
@@ -168,7 +168,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card>
+    <Card className="border border-border bg-card shadow-sm">
       <CardContent className="p-4">
         <p className="text-sm text-muted-foreground">{label}</p>
         <p className="mt-1 text-xl font-bold tracking-normal">{value}</p>
