@@ -56,8 +56,20 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   const [form, setForm] = useState<TransactionInput>(emptyInput);
   const [currencyAmountInput, setCurrencyAmountInput] = useState("");
   const [rateInput, setRateInput] = useState("");
+  const [existingRecords, setExistingRecords] = useState<Transaction[]>([]);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    transactionRouter.exportAll().then((records) => {
+      if (active) setExistingRecords(records);
+    });
+    return () => {
+      active = false;
+    };
+  }, [editingRecord, saved]);
 
   useEffect(() => {
     if (editingRecord) {
@@ -87,6 +99,23 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   );
   const saveValidation = useMemo(() => validateTransactionInput(formForSave), [formForSave]);
   const hasErrors = Object.keys(saveValidation.errors).length > 0;
+  const customerSuggestions = useMemo(() => {
+    const normalizedCurrent = form.customerName.trim().toLowerCase();
+    if (!normalizedCurrent) return [];
+
+    const seen = new Set<string>();
+    return existingRecords
+      .map((record) => record.customerName.trim())
+      .filter((name) => {
+        if (!name) return false;
+        const normalizedName = name.toLowerCase();
+        if (seen.has(normalizedName)) return false;
+        seen.add(normalizedName);
+
+        return normalizedName.includes(normalizedCurrent) && normalizedName !== normalizedCurrent;
+      })
+      .slice(0, 8);
+  }, [existingRecords, form.customerName]);
 
   useEffect(() => {
     let active = true;
@@ -101,6 +130,11 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   function setField<K extends keyof TransactionInput>(key: K, value: TransactionInput[K]) {
     setSaved(false);
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function selectCustomerSuggestion(customerName: string) {
+    setField("customerName", customerName);
+    setShowCustomerSuggestions(false);
   }
 
   function setDecimalInput(value: string, setter: (value: string) => void) {
@@ -148,11 +182,34 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
               <Input type="date" value={form.date} onChange={(event) => setField("date", event.target.value)} />
             </Field>
             <Field label="Customer Name / KYC" error={saveValidation.errors.customerName}>
-              <Input
-                value={form.customerName}
-                onChange={(event) => setField("customerName", event.target.value)}
-                placeholder="Customer full name"
-              />
+              <div className="relative">
+                <Input
+                  value={form.customerName}
+                  onChange={(event) => {
+                    setField("customerName", event.target.value);
+                    setShowCustomerSuggestions(true);
+                  }}
+                  onFocus={() => setShowCustomerSuggestions(true)}
+                  onBlur={() => window.setTimeout(() => setShowCustomerSuggestions(false), 120)}
+                  placeholder="Customer full name"
+                  autoComplete="off"
+                />
+                {showCustomerSuggestions && customerSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
+                    {customerSuggestions.map((customerName) => (
+                      <button
+                        key={customerName.toLowerCase()}
+                        type="button"
+                        className="block w-full rounded-sm px-3 py-3 text-left text-sm font-medium hover:bg-muted focus:bg-muted focus:outline-none"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectCustomerSuggestion(customerName)}
+                      >
+                        {customerName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </Field>
             <Field label="OR Number" error={saveValidation.errors.orNumber}>
               <Input
@@ -161,15 +218,6 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
                 placeholder="Official receipt number"
               />
             </Field>
-            <Field label="Currency" error={saveValidation.errors.currency}>
-              <Select value={form.currency} onChange={(event) => setField("currency", event.target.value)}>
-                {["USD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "HKD", "KRW", "CNY"].map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
-                  </option>
-                ))}
-              </Select>
-            </Field>
             <Field label="Transaction Type" error={saveValidation.errors.transactionType}>
               <Select
                 value={form.transactionType}
@@ -177,6 +225,15 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
               >
                 <option value="BUY">BUY</option>
                 <option value="SELL">SELL</option>
+              </Select>
+            </Field>
+            <Field label="Currency" error={saveValidation.errors.currency}>
+              <Select value={form.currency} onChange={(event) => setField("currency", event.target.value)}>
+                {["USD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "HKD", "KRW", "CNY"].map((currency) => (
+                  <option key={currency} value={currency}>
+                    {currency}
+                  </option>
+                ))}
               </Select>
             </Field>
             <NumberField
