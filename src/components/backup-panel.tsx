@@ -58,7 +58,7 @@ export function BackupPanel({ onChanged }: { onChanged: () => void }) {
 
       {message && <Alert>{message}</Alert>}
 
-      <Card>
+      <Card className="border border-border bg-card shadow-sm">
         <CardHeader>
           <CardTitle>Backup</CardTitle>
         </CardHeader>
