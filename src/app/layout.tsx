@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+// @ts-ignore
 import "./globals.css";
 import { Toaster } from "sonner";
 
