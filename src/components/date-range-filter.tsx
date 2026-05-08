@@ -85,7 +85,7 @@ export function DateRangeFilter({ value, onChange }: Props) {
               <span className="truncate">{label}</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto bg-popover p-0" align="start">
+          <PopoverContent className="z-[80] w-auto border border-border bg-white p-0 shadow-xl" align="start">
             <Calendar
               mode="range"
               selected={selected}
