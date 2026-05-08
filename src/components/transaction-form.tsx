@@ -4,9 +4,10 @@ import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -59,7 +60,6 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   const [existingRecords, setExistingRecords] = useState<Transaction[]>([]);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -69,7 +69,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     return () => {
       active = false;
     };
-  }, [editingRecord, saved]);
+  }, [editingRecord]);
 
   useEffect(() => {
     if (editingRecord) {
@@ -128,7 +128,6 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   }, [formForSave, editingRecord?.id, saveValidation.warnings]);
 
   function setField<K extends keyof TransactionInput>(key: K, value: TransactionInput[K]) {
-    setSaved(false);
     setForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -141,18 +140,27 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     const next = sanitizeDecimalInput(value);
     if (next === null) return;
 
-    setSaved(false);
     setter(next);
   }
 
   async function handleSave() {
     if (hasErrors) return;
+    const wasEditing = Boolean(editingRecord);
+
     if (editingRecord) {
       await transactionRouter.update(editingRecord.id, formForSave);
     } else {
       await transactionRouter.create(formForSave);
     }
-    setSaved(true);
+
+    toast.success(wasEditing ? "Record updated" : "Record saved", {
+      description: wasEditing
+        ? "The transaction was updated on this phone."
+        : "The transaction was saved on this phone.",
+      duration: 3000
+    });
+
+    setExistingRecords(await transactionRouter.exportAll());
     setForm(emptyInput());
     setCurrencyAmountInput("");
     setRateInput("");
@@ -162,11 +170,8 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <Card>
-        <CardHeader>
-          <CardTitle>{editingRecord ? "Edit Record" : "Encode Record"}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {saved && <Alert>Record saved on this phone.</Alert>}
+        <CardContent className="space-y-4 p-4">
+          {editingRecord && <p className="text-sm font-medium text-muted-foreground">Editing record</p>}
           {warnings.length > 0 && (
             <Alert variant="warning">
               <ul className="space-y-1">
