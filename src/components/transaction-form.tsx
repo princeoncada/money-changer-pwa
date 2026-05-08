@@ -195,12 +195,12 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
                   autoComplete="off"
                 />
                 {showCustomerSuggestions && customerSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
+                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-56 overflow-y-auto rounded-md border border-border bg-white p-1 shadow-xl">
                     {customerSuggestions.map((customerName) => (
                       <button
                         key={customerName.toLowerCase()}
                         type="button"
-                        className="block w-full rounded-sm px-3 py-3 text-left text-sm font-medium hover:bg-muted focus:bg-muted focus:outline-none"
+                        className="block w-full rounded-sm bg-white px-3 py-3 text-left text-sm font-medium hover:bg-muted focus:bg-muted focus:outline-none"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => selectCustomerSuggestion(customerName)}
                       >
