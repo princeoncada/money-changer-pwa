@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -10,15 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateTotalPhp } from "@/lib/calculations";
 import { transactionRouter } from "@/lib/local-api/transactions";
@@ -173,7 +171,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      <Card>
+      <Card className="border border-border bg-card shadow-sm">
         <CardContent className="space-y-4 p-4">
           {editingRecord && <p className="text-sm font-medium text-muted-foreground">Editing record</p>}
           {warnings.length > 0 && (
@@ -214,7 +212,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select transaction type" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[80] border border-border bg-white shadow-xl">
                   <SelectItem value="BUY">BUY</SelectItem>
                   <SelectItem value="SELL">SELL</SelectItem>
                 </SelectContent>
@@ -225,7 +223,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[80] border border-border bg-white shadow-xl">
                   {["USD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "HKD", "KRW", "CNY"].map((currency) => (
                     <SelectItem key={currency} value={currency}>
                       {currency}
@@ -284,45 +282,42 @@ function CustomerCombobox({
   onChange: (value: string) => void;
 }) {
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-8 w-full justify-between bg-background px-2.5 text-left font-normal"
-        >
-          <span className={value ? "truncate" : "truncate text-muted-foreground"}>
-            {value || "Customer full name"}
-          </span>
-          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] bg-popover p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
-            value={value}
-            onValueChange={onChange}
-            placeholder="Customer full name"
-            autoComplete="off"
-          />
+    <Popover open={open && suggestions.length > 0} onOpenChange={onOpenChange}>
+      <PopoverAnchor asChild>
+        <Input
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+            onOpenChange(true);
+          }}
+          onFocus={() => onOpenChange(true)}
+          placeholder="Customer full name"
+          autoComplete="off"
+        />
+      </PopoverAnchor>
+      <PopoverContent
+        className="z-[80] w-[var(--radix-popover-trigger-width)] border border-border bg-white p-1 shadow-xl"
+        align="start"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <Command shouldFilter={false} className="rounded-md bg-white p-0">
           <CommandList>
-            <CommandEmpty>No saved customer names.</CommandEmpty>
-            {suggestions.length > 0 && (
-              <CommandGroup>
-                {suggestions.map((customerName) => (
-                  <CommandItem
-                    key={customerName.toLowerCase()}
-                    value={customerName}
-                    onSelect={() => {
-                      onChange(customerName);
-                      onOpenChange(false);
-                    }}
-                  >
-                    {customerName}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
+            <CommandGroup>
+              {suggestions.map((customerName) => (
+                <CommandItem
+                  key={customerName.toLowerCase()}
+                  value={customerName}
+                  className="cursor-pointer bg-white"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onSelect={() => {
+                    onChange(customerName);
+                    onOpenChange(false);
+                  }}
+                >
+                  {customerName}
+                </CommandItem>
+              ))}
+            </CommandGroup>
           </CommandList>
         </Command>
       </PopoverContent>
