@@ -1,39 +1,36 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
+import * as React from "react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { type DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { todayLocal } from "@/lib/utils";
 import type { Transaction } from "@/types/transaction";
 
-export type FilterMode = "DAY" | "MONTH" | "RANGE";
-
 export type DateFilter = {
-  mode: FilterMode;
-  day: string;
-  month: string;
-  startDate: string;
-  endDate: string;
+  from: string;
+  to: string;
 };
 
 export function defaultDateFilter(): DateFilter {
   const today = todayLocal();
 
   return {
-    mode: "DAY",
-    day: today,
-    month: today.slice(0, 7),
-    startDate: today,
-    endDate: today
+    from: today,
+    to: today
   };
 }
 
 export function matchesDateFilter(record: Transaction, filter: DateFilter) {
-  if (filter.mode === "DAY") return record.date === filter.day;
-  if (filter.mode === "MONTH") return Boolean(filter.month) && record.date.startsWith(filter.month);
-  if (!filter.startDate || !filter.endDate) return false;
+  if (filter.from && filter.to) return record.date >= filter.from && record.date <= filter.to;
+  if (filter.from) return record.date === filter.from;
+  if (filter.to) return record.date <= filter.to;
 
-  return record.date >= filter.startDate && record.date <= filter.endDate;
+  return true;
 }
 
 type Props = {
@@ -42,55 +39,82 @@ type Props = {
 };
 
 export function DateRangeFilter({ value, onChange }: Props) {
-  function setField<K extends keyof DateFilter>(key: K, nextValue: DateFilter[K]) {
-    onChange({ ...value, [key]: nextValue });
+  const selected = React.useMemo<DateRange | undefined>(
+    () => ({
+      from: parseDate(value.from),
+      to: parseDate(value.to)
+    }),
+    [value.from, value.to]
+  );
+
+  const label = React.useMemo(() => {
+    const from = parseDate(value.from);
+    const to = parseDate(value.to);
+
+    if (from && to) {
+      if (value.from === value.to) return format(from, "MMM d, yyyy");
+      return `${format(from, "MMM d, yyyy")} - ${format(to, "MMM d, yyyy")}`;
+    }
+
+    if (from) return format(from, "MMM d, yyyy");
+    if (to) return `Until ${format(to, "MMM d, yyyy")}`;
+
+    return "All dates";
+  }, [value.from, value.to]);
+
+  function handleSelect(range: DateRange | undefined) {
+    onChange({
+      from: formatDate(range?.from),
+      to: formatDate(range?.to ?? range?.from)
+    });
+  }
+
+  function setToday() {
+    const today = todayLocal();
+    onChange({ from: today, to: today });
   }
 
   return (
     <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-soft">
       <div className="space-y-2">
-        <Label>Filter by</Label>
-        <Select value={value.mode} onChange={(event) => setField("mode", event.target.value as FilterMode)}>
-          <option value="DAY">Day</option>
-          <option value="MONTH">Month</option>
-          <option value="RANGE">Range</option>
-        </Select>
+        <Label>Date range</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline" className="w-full justify-start bg-background text-left font-normal">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">{label}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto bg-popover p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={selected}
+              onSelect={handleSelect}
+              defaultMonth={selected?.from}
+              numberOfMonths={1}
+            />
+            <div className="flex justify-end border-t border-border p-2">
+              <Button type="button" variant="outline" size="sm" onClick={setToday}>
+                Today
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
-
-      {value.mode === "DAY" && (
-        <div className="space-y-2">
-          <Label>Day</Label>
-          <Input type="date" value={value.day} onChange={(event) => setField("day", event.target.value)} />
-        </div>
-      )}
-
-      {value.mode === "MONTH" && (
-        <div className="space-y-2">
-          <Label>Month</Label>
-          <Input type="month" value={value.month} onChange={(event) => setField("month", event.target.value)} />
-        </div>
-      )}
-
-      {value.mode === "RANGE" && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Start</Label>
-            <Input
-              type="date"
-              value={value.startDate}
-              onChange={(event) => setField("startDate", event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>End</Label>
-            <Input
-              type="date"
-              value={value.endDate}
-              onChange={(event) => setField("endDate", event.target.value)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function parseDate(value: string) {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+
+  return new Date(year, month - 1, day);
+}
+
+function formatDate(date: Date | undefined) {
+  if (!date) return "";
+
+  return format(date, "yyyy-MM-dd");
 }
