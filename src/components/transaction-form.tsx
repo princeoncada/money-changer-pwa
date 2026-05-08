@@ -1,12 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Command,
@@ -16,11 +18,11 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateTotalPhp } from "@/lib/calculations";
 import { transactionRouter } from "@/lib/local-api/transactions";
-import { formatPeso, todayLocal } from "@/lib/utils";
+import { cn, formatPeso, todayLocal } from "@/lib/utils";
 import { findDuplicateWarnings, validateTransactionInput } from "@/lib/validation";
 import type { Transaction, TransactionInput } from "@/types/transaction";
 
@@ -186,7 +188,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
 
           <div className="grid gap-3">
             <Field label="Date" error={saveValidation.errors.date}>
-              <Input type="date" value={form.date} onChange={(event) => setField("date", event.target.value)} />
+              <DatePicker value={form.date} onChange={(date) => setField("date", date)} />
             </Field>
             <Field label="Customer Name / KYC" error={saveValidation.errors.customerName}>
               <CustomerCombobox
@@ -268,6 +270,39 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   );
 }
 
+function DatePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const selected = useMemo(() => parseDate(value), [value]);
+  const label = selected ? format(selected, "MMM d, yyyy") : "Pick a date";
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "w-full justify-start bg-background text-left font-normal"
+        )}
+      >
+        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+        <span>{label}</span>
+      </PopoverTrigger>
+      <PopoverContent
+        className="z-[80] w-[var(--radix-popover-trigger-width)] border border-border bg-white p-0 shadow-xl"
+        align="start"
+      >
+        <Calendar
+          className="w-full bg-white"
+          mode="single"
+          selected={selected}
+          onSelect={(date) => {
+            if (date) onChange(formatDate(date));
+          }}
+          defaultMonth={selected}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function CustomerCombobox({
   value,
   open,
@@ -283,7 +318,7 @@ function CustomerCombobox({
 }) {
   return (
     <Popover open={open && suggestions.length > 0} onOpenChange={onOpenChange}>
-      <PopoverAnchor asChild>
+      <PopoverAnchor className="block w-full">
         <Input
           value={value}
           onChange={(event) => {
@@ -296,7 +331,7 @@ function CustomerCombobox({
         />
       </PopoverAnchor>
       <PopoverContent
-        className="z-[80] w-[var(--radix-popover-trigger-width)] border border-border bg-white p-1 shadow-xl"
+        className="z-[80] w-[var(--radix-popper-anchor-width)] border border-border bg-white p-1 shadow-xl"
         align="start"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
@@ -365,4 +400,16 @@ function NumberField({
       />
     </Field>
   );
+}
+
+function parseDate(value: string) {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+
+  return new Date(year, month - 1, day);
+}
+
+function formatDate(date: Date) {
+  return format(date, "yyyy-MM-dd");
 }
