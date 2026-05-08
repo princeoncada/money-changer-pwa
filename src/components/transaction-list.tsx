@@ -82,13 +82,13 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
       </div>
 
       {records.length === 0 ? (
-        <Card>
+        <Card className="border border-border bg-card shadow-sm">
           <CardContent className="p-4 text-sm text-muted-foreground">No records for this selection.</CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           {records.map((record) => (
-            <Card key={record.id}>
+            <Card key={record.id} className="border border-border bg-card shadow-sm">
               <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
