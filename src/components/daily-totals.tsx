@@ -9,6 +9,7 @@ import {
   type DateFilter
 } from "@/components/date-range-filter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calculateDailyTotals, calculateIncomeReports } from "@/lib/calculations";
 import { transactionRouter } from "@/lib/local-api/transactions";
 import { formatNumber, formatPeso, formatRate } from "@/lib/utils";
@@ -54,27 +55,28 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
       <ReportSection title="By Currency">
         {totals.byCurrency.length > 0 ? (
           <div className="overflow-x-auto rounded-md border border-border">
-            <div className="min-w-[620px]">
-              <div className="grid grid-cols-[0.8fr_1fr_1fr_1fr_1fr] gap-2 bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
-                <span>Currency</span>
-                <span>Bought Amount</span>
-                <span>Sold Amount</span>
-                <span>BUY PHP</span>
-                <span>SELL PHP</span>
-              </div>
-              {totals.byCurrency.map((currency) => (
-                <div
-                  key={currency.currency}
-                  className="grid grid-cols-[0.8fr_1fr_1fr_1fr_1fr] gap-2 border-t border-border px-3 py-2 text-sm"
-                >
-                  <span className="font-semibold">{currency.currency}</span>
-                  <span>{formatNumber(currency.boughtAmount)}</span>
-                  <span>{formatNumber(currency.soldAmount)}</span>
-                  <span>{formatPeso(currency.buyTotalPhp)}</span>
-                  <span>{formatPeso(currency.sellTotalPhp)}</span>
-                </div>
-              ))}
-            </div>
+            <Table className="min-w-[620px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Currency</TableHead>
+                  <TableHead>Bought Amount</TableHead>
+                  <TableHead>Sold Amount</TableHead>
+                  <TableHead>BUY PHP</TableHead>
+                  <TableHead>SELL PHP</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {totals.byCurrency.map((currency) => (
+                  <TableRow key={currency.currency}>
+                    <TableCell className="font-semibold">{currency.currency}</TableCell>
+                    <TableCell>{formatNumber(currency.boughtAmount)}</TableCell>
+                    <TableCell>{formatNumber(currency.soldAmount)}</TableCell>
+                    <TableCell>{formatPeso(currency.buyTotalPhp)}</TableCell>
+                    <TableCell>{formatPeso(currency.sellTotalPhp)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No currency totals for this selection.</p>
