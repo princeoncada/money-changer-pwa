@@ -4,11 +4,11 @@ import * as React from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { type DateRange } from "react-day-picker";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { todayLocal } from "@/lib/utils";
+import { cn, todayLocal } from "@/lib/utils";
 import type { Transaction } from "@/types/transaction";
 
 export type DateFilter = {
@@ -39,6 +39,7 @@ type Props = {
 };
 
 export function DateRangeFilter({ value, onChange }: Props) {
+  const [open, setOpen] = React.useState(false);
   const selected = React.useMemo<DateRange | undefined>(
     () => ({
       from: parseDate(value.from),
@@ -78,15 +79,23 @@ export function DateRangeFilter({ value, onChange }: Props) {
     <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-soft">
       <div className="space-y-2">
         <Label>Date range</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="outline" className="w-full justify-start bg-background text-left font-normal">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">{label}</span>
-            </Button>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "w-full justify-start bg-background text-left font-normal"
+            )}
+          >
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+            <span className="truncate">{label}</span>
           </PopoverTrigger>
-          <PopoverContent className="z-[80] w-auto border border-border bg-white p-0 shadow-xl" align="start">
+          <PopoverContent
+            className="z-50 w-[var(--radix-popover-trigger-width)] border border-border bg-white p-0 shadow-xl"
+            align="start"
+            sideOffset={4}
+          >
             <Calendar
+              className="w-full bg-white"
               mode="range"
               selected={selected}
               onSelect={handleSelect}
