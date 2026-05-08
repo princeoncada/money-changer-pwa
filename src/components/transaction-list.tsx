@@ -131,7 +131,32 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
         destructive
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-      />
+      >
+        {deleteTarget && (
+          <div className="rounded-md border border-border bg-muted/50 p-3 text-sm">
+            <DeleteDetail label="Customer" value={deleteTarget.customerName} />
+            <DeleteDetail label="Date" value={deleteTarget.date} />
+            <DeleteDetail label="OR Number" value={deleteTarget.orNumber} />
+            <DeleteDetail label="Type" value={deleteTarget.transactionType} />
+            <DeleteDetail label="Currency" value={deleteTarget.currency} />
+            <DeleteDetail label="Amount" value={formatNumber(deleteTarget.currencyAmount)} />
+            <DeleteDetail
+              label={deleteTarget.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"}
+              value={formatRate(deleteTarget.rate)}
+            />
+            <DeleteDetail label="Total PHP" value={formatPeso(deleteTarget.totalPhp)} />
+          </div>
+        )}
+      </Dialog>
+    </div>
+  );
+}
+
+function DeleteDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[6.5rem_1fr] gap-2 py-0.5">
+      <span className="text-muted-foreground">{label}:</span>
+      <span className="font-medium">{value}</span>
     </div>
   );
 }
