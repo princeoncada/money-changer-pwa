@@ -1,16 +1,25 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateTotalPhp } from "@/lib/calculations";
 import { transactionRouter } from "@/lib/local-api/transactions";
 import { formatPeso, todayLocal } from "@/lib/utils";
@@ -58,7 +67,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
   const [currencyAmountInput, setCurrencyAmountInput] = useState("");
   const [rateInput, setRateInput] = useState("");
   const [existingRecords, setExistingRecords] = useState<Transaction[]>([]);
-  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
@@ -131,11 +140,6 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function selectCustomerSuggestion(customerName: string) {
-    setField("customerName", customerName);
-    setShowCustomerSuggestions(false);
-  }
-
   function setDecimalInput(value: string, setter: (value: string) => void) {
     const next = sanitizeDecimalInput(value);
     if (next === null) return;
@@ -173,7 +177,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
         <CardContent className="space-y-4 p-4">
           {editingRecord && <p className="text-sm font-medium text-muted-foreground">Editing record</p>}
           {warnings.length > 0 && (
-            <Alert variant="warning">
+            <Alert>
               <ul className="space-y-1">
                 {warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
@@ -187,34 +191,13 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
               <Input type="date" value={form.date} onChange={(event) => setField("date", event.target.value)} />
             </Field>
             <Field label="Customer Name / KYC" error={saveValidation.errors.customerName}>
-              <div className="relative">
-                <Input
-                  value={form.customerName}
-                  onChange={(event) => {
-                    setField("customerName", event.target.value);
-                    setShowCustomerSuggestions(true);
-                  }}
-                  onFocus={() => setShowCustomerSuggestions(true)}
-                  onBlur={() => window.setTimeout(() => setShowCustomerSuggestions(false), 120)}
-                  placeholder="Customer full name"
-                  autoComplete="off"
-                />
-                {showCustomerSuggestions && customerSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-56 overflow-y-auto rounded-md border border-border bg-white p-1 shadow-xl">
-                    {customerSuggestions.map((customerName) => (
-                      <button
-                        key={customerName.toLowerCase()}
-                        type="button"
-                        className="block w-full rounded-sm bg-white px-3 py-3 text-left text-sm font-medium hover:bg-muted focus:bg-muted focus:outline-none"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => selectCustomerSuggestion(customerName)}
-                      >
-                        {customerName}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <CustomerCombobox
+                value={form.customerName}
+                open={customerComboboxOpen}
+                suggestions={customerSuggestions}
+                onOpenChange={setCustomerComboboxOpen}
+                onChange={(customerName) => setField("customerName", customerName)}
+              />
             </Field>
             <Field label="OR Number" error={saveValidation.errors.orNumber}>
               <Input
@@ -226,19 +209,29 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
             <Field label="Transaction Type" error={saveValidation.errors.transactionType}>
               <Select
                 value={form.transactionType}
-                onChange={(event) => setField("transactionType", event.target.value as TransactionInput["transactionType"])}
+                onValueChange={(value) => setField("transactionType", value as TransactionInput["transactionType"])}
               >
-                <option value="BUY">BUY</option>
-                <option value="SELL">SELL</option>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select transaction type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BUY">BUY</SelectItem>
+                  <SelectItem value="SELL">SELL</SelectItem>
+                </SelectContent>
               </Select>
             </Field>
             <Field label="Currency" error={saveValidation.errors.currency}>
-              <Select value={form.currency} onChange={(event) => setField("currency", event.target.value)}>
-                {["USD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "HKD", "KRW", "CNY"].map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
-                  </option>
-                ))}
+              <Select value={form.currency} onValueChange={(value) => setField("currency", value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["USD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "HKD", "KRW", "CNY"].map((currency) => (
+                    <SelectItem key={currency} value={currency}>
+                      {currency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
             <NumberField
@@ -274,6 +267,66 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+function CustomerCombobox({
+  value,
+  open,
+  suggestions,
+  onOpenChange,
+  onChange
+}: {
+  value: string;
+  open: boolean;
+  suggestions: string[];
+  onOpenChange: (open: boolean) => void;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-8 w-full justify-between bg-background px-2.5 text-left font-normal"
+        >
+          <span className={value ? "truncate" : "truncate text-muted-foreground"}>
+            {value || "Customer full name"}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] bg-popover p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            value={value}
+            onValueChange={onChange}
+            placeholder="Customer full name"
+            autoComplete="off"
+          />
+          <CommandList>
+            <CommandEmpty>No saved customer names.</CommandEmpty>
+            {suggestions.length > 0 && (
+              <CommandGroup>
+                {suggestions.map((customerName) => (
+                  <CommandItem
+                    key={customerName.toLowerCase()}
+                    value={customerName}
+                    onSelect={() => {
+                      onChange(customerName);
+                      onOpenChange(false);
+                    }}
+                  >
+                    {customerName}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
