@@ -19,15 +19,28 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("encode");
   const [refreshKey, setRefreshKey] = useState(0);
   const [editingRecord, setEditingRecord] = useState<Transaction | null>(null);
+  const [focusedRecordId, setFocusedRecordId] = useState<string | null>(null);
 
-  function refresh() {
+  function refresh(recordId?: string) {
     setRefreshKey((current) => current + 1);
     setEditingRecord(null);
+    if (recordId) {
+      setFocusedRecordId(recordId);
+      setActiveTab("records");
+    }
   }
 
   function editRecord(record: Transaction) {
     setEditingRecord(record);
+    setFocusedRecordId(record.id);
     setActiveTab("encode");
+  }
+
+  function cancelEdit() {
+    const recordId = editingRecord?.id ?? null;
+    setEditingRecord(null);
+    setFocusedRecordId(recordId);
+    setActiveTab("records");
   }
 
   return (
@@ -42,10 +55,12 @@ export default function Home() {
           <TransactionForm
             editingRecord={editingRecord}
             onSaved={refresh}
-            onCancelEdit={() => setEditingRecord(null)}
+            onCancelEdit={cancelEdit}
           />
         )}
-        {activeTab === "records" && <TransactionList refreshKey={refreshKey} onEdit={editRecord} />}
+        {activeTab === "records" && (
+          <TransactionList refreshKey={refreshKey} onEdit={editRecord} highlightedRecordId={focusedRecordId} />
+        )}
         {activeTab === "totals" && <DailyTotals refreshKey={refreshKey} />}
         {activeTab === "backup" && <BackupPanel onChanged={refresh} />}
       </div>
