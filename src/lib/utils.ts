@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getCurrencySymbol } from "@/lib/currencies"
 
 export type AppPreferences = {
   encodeDate: string
@@ -102,23 +103,6 @@ export function formatRate(value: number) {
   }).format(value || 0)
 }
 
-export const currencySymbols: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  JPY: "¥",
-  GBP: "£",
-  AUD: "A$",
-  CAD: "C$",
-  SGD: "S$",
-  HKD: "HK$",
-  KRW: "₩",
-  CNY: "¥"
-}
-
-export function getCurrencySymbol(currency: string) {
-  return currencySymbols[currency] ?? currency
-}
-
 export function formatForeignCurrencyAmount(amount: number, currency: string) {
   return `${getCurrencySymbol(currency)}${(amount || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -129,3 +113,5 @@ export function formatForeignCurrencyAmount(amount: number, currency: string) {
 export function normalizeText(value: string) {
   return value.trim().toLowerCase()
 }
+
+export { getCurrencySymbol }
