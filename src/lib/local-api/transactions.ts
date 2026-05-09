@@ -1,4 +1,5 @@
 import { calculateDailyTotals, calculateTotalPhp } from "@/lib/calculations";
+import { normalizeCurrencyCode } from "@/lib/currencies";
 import { db } from "@/lib/db";
 import { normalizeText } from "@/lib/utils";
 import { validateTransactionInput } from "@/lib/validation";
@@ -12,7 +13,7 @@ function cleanInput(input: TransactionInput): TransactionInput {
     date: input.date,
     customerName: input.customerName.trim(),
     orNumber: input.orNumber.trim(),
-    currency: input.currency.trim().toUpperCase(),
+    currency: normalizeCurrencyCode(input.currency),
     transactionType: input.transactionType,
     currencyAmount,
     rate,
@@ -49,7 +50,7 @@ function normalizeTransaction(record: LegacyTransaction): Transaction {
     date: record.date || now.slice(0, 10),
     customerName: (record.customerName || "Migrated record - edit details").trim(),
     orNumber: (record.orNumber || "MIGRATED").trim(),
-    currency: (record.currency || "USD").trim().toUpperCase(),
+    currency: normalizeCurrencyCode(record.currency || "USD"),
     transactionType,
     currencyAmount,
     rate,
