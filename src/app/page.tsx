@@ -59,7 +59,12 @@ export default function Home() {
           />
         )}
         {activeTab === "records" && (
-          <TransactionList refreshKey={refreshKey} onEdit={editRecord} highlightedRecordId={focusedRecordId} />
+          <TransactionList
+            refreshKey={refreshKey}
+            onEdit={editRecord}
+            highlightedRecordId={focusedRecordId}
+            onHighlightedRecordConsumed={() => setFocusedRecordId(null)}
+          />
         )}
         {activeTab === "totals" && <DailyTotals refreshKey={refreshKey} />}
         {activeTab === "backup" && <BackupPanel onChanged={refresh} />}
