@@ -30,9 +30,15 @@ type Props = {
   refreshKey: number;
   onEdit: (record: Transaction) => void;
   highlightedRecordId?: string | null;
+  onHighlightedRecordConsumed?: () => void;
 };
 
-export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Props) {
+export function TransactionList({
+  refreshKey,
+  onEdit,
+  highlightedRecordId,
+  onHighlightedRecordConsumed
+}: Props) {
   const [dateFilter, setDateFilter] = useState<DateFilter>(defaultDateFilter);
   const [query, setQuery] = useState("");
   const [allRecords, setAllRecords] = useState<Transaction[]>([]);
@@ -41,6 +47,7 @@ export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Pro
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
   const recordRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const handledHighlightId = useRef<string | null>(null);
 
   const loadRecords = useCallback(async () => {
     setAllRecords(await transactionRouter.exportAll());
@@ -79,21 +86,34 @@ export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Pro
   }, [allRecords, highlightedRecordId]);
 
   useEffect(() => {
-    if (!highlightedRecordId || !records.some((record) => record.id === highlightedRecordId)) return;
+    if (
+      !highlightedRecordId ||
+      handledHighlightId.current === highlightedRecordId ||
+      !records.some((record) => record.id === highlightedRecordId)
+    ) {
+      return;
+    }
 
     const frame = window.requestAnimationFrame(() => {
       const element = recordRefs.current[highlightedRecordId];
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
       element?.focus({ preventScroll: true });
       setActiveHighlightId(highlightedRecordId);
+      handledHighlightId.current = highlightedRecordId;
+      onHighlightedRecordConsumed?.();
     });
-    const timeout = window.setTimeout(() => setActiveHighlightId(null), 2400);
 
     return () => {
       window.cancelAnimationFrame(frame);
-      window.clearTimeout(timeout);
     };
-  }, [highlightedRecordId, records]);
+  }, [highlightedRecordId, onHighlightedRecordConsumed, records]);
+
+  useEffect(() => {
+    if (!activeHighlightId) return;
+
+    const timeout = window.setTimeout(() => setActiveHighlightId(null), 2400);
+    return () => window.clearTimeout(timeout);
+  }, [activeHighlightId]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -124,7 +144,7 @@ export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Pro
       <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
 
       <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-soft">
-        <div className="space-y-2">
+        <div className="space-y-4">
           <Label>Search</Label>
           <InputGroup>
             <InputGroupAddon>
@@ -140,7 +160,7 @@ export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Pro
         <div className="space-y-3 border-t border-border pt-3">
           <div className="flex items-center justify-between gap-3">
             <Label>Advanced filters</Label>
-            <Button type="button" variant="outline" size="sm" onClick={clearAdvancedFilters}>
+            <Button type="button" variant="outline" size="sm" className="rounded-md" onClick={clearAdvancedFilters}>
               Clear All Filters
             </Button>
           </div>
@@ -178,7 +198,7 @@ export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Pro
           <CardContent className="p-4 text-sm text-muted-foreground">No records for this selection.</CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {records.map((record) => (
             <div
               key={record.id}
@@ -187,22 +207,22 @@ export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Pro
                 recordRefs.current[record.id] = element;
               }}
               tabIndex={-1}
-              className="rounded-xl outline-none"
+              className="rounded-lg outline-none"
             >
               <Card
                 className={cn(
-                  "border border-border bg-card shadow-sm transition-colors duration-500",
+                  "border border-border bg-card py-0 !shadow-lg transition-colors duration-500",
                   activeHighlightId === record.id && "border-primary bg-primary/5 ring-2 ring-primary/30"
                 )}
               >
-                <CardContent className="space-y-3 p-4">
+                <CardContent className="space-y-2.5 p-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold">{record.customerName}</p>
                       <p className="text-sm text-muted-foreground">
                         {record.date} - OR {record.orNumber}
                       </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <RecordBadge>{record.currency}</RecordBadge>
                         <RecordBadge
                           className={
@@ -216,12 +236,13 @@ export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Pro
                       </div>
                     </div>
                   </div>
+                  <div className="h-px bg-border" />
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <Info label="Currency Amount" value={formatNumber(record.currencyAmount)} />
                     <Info label={record.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"} value={formatRate(record.rate)} />
                     <Info label="Total PHP" value={formatPeso(record.totalPhp)} />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 pt-1">
                     <Button type="button" variant="outline" onClick={() => onEdit(record)}>
                       <Edit3 className="h-4 w-4" />
                       Edit
@@ -286,9 +307,9 @@ function DeleteDetail({ label, value }: { label: string; value: string }) {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-muted p-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-semibold">{value}</p>
+    <div className="rounded-md bg-muted px-2 py-1.5">
+      <p className="text-[0.7rem] leading-tight text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-semibold leading-snug">{value}</p>
     </div>
   );
 }
