@@ -6,17 +6,26 @@ import { Toaster } from "sonner";
 
 
 export const metadata: Metadata = {
-  title: "Money Changer Records",
-  description: "Offline daily money changer record encoder",
+  title: "Alshizamin FXD System",
+  description: "Client-first local-first foreign exchange operations PWA for Alshizamin Money Changer.",
+  keywords: [
+    "foreign exchange",
+    "money changer",
+    "FX operations",
+    "currency exchange",
+    "PWA",
+    "local-first",
+    "offline-first"
+  ],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "Records",
+    title: "Alshizamin FXD",
     statusBarStyle: "default"
   },
   icons: {
     icon: "/icon.svg",
-    apple: "/icon.svg"
+    apple: "/apple-touch-icon.png"
   }
 };
 
