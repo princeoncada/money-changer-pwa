@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { isAllowedCurrency } from "@/lib/currencies";
 import { normalizeText } from "@/lib/utils";
 import type { TransactionInput } from "@/types/transaction";
 
@@ -14,7 +15,11 @@ export function validateTransactionInput(input: TransactionInput): ValidationRes
   if (!input.date) errors.date = "Date is required.";
   if (!input.customerName.trim()) errors.customerName = "Customer name is required.";
   if (!input.orNumber.trim()) errors.orNumber = "OR number is required.";
-  if (!input.currency.trim()) errors.currency = "Currency is required.";
+  if (!input.currency.trim()) {
+    errors.currency = "Currency is required.";
+  } else if (!isAllowedCurrency(input.currency)) {
+    errors.currency = "Currency must be one of the allowed currencies.";
+  }
   if (input.transactionType !== "BUY" && input.transactionType !== "SELL") {
     errors.transactionType = "Transaction type must be BUY or SELL.";
   }
