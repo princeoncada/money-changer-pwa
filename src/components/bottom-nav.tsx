@@ -15,7 +15,7 @@ const tabs = [
 export function BottomNav({ activeTab, onTabChange }: { activeTab: AppTab; onTabChange: (tab: AppTab) => void }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur-xl"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-transparent px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2"
     >
       <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
         {tabs.map((tab) => {
