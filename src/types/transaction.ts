@@ -43,6 +43,7 @@ export type CurrencyIncomeReport = {
   totalSoldAmount: number;
   totalSellPhp: number;
   averageBuyRate: number | null;
+  averageSellRate: number | null;
   matchedSoldAmount: number;
   matchedBuyCostPhp: number | null;
   matchedSellRevenuePhp: number | null;
