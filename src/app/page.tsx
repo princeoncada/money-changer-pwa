@@ -44,7 +44,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background pb-24 text-foreground">
+    <main className="min-h-screen bg-background pb-[calc(6rem+env(safe-area-inset-bottom))] text-foreground">
       <div className="mx-auto max-w-md px-4 pb-6 pt-[calc(env(safe-area-inset-top)+20px)]">
         <header className="mb-5">
           <p className="text-sm font-semibold uppercase tracking-normal text-primary">Money Changer</p>
