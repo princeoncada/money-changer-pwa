@@ -1,7 +1,8 @@
 "use client";
 
 import { Edit3, Search, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DateRangeFilter,
   defaultDateFilter,
@@ -18,11 +19,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { transactionRouter } from "@/lib/local-api/transactions";
-import { formatNumber, formatPeso, formatRate, normalizeText } from "@/lib/utils";
-import type { Transaction } from "@/types/transaction";
+import { cn, formatNumber, formatPeso, formatRate, normalizeText } from "@/lib/utils";
+import type { Transaction, TransactionType } from "@/types/transaction";
 
 type Props = {
   refreshKey: number;
@@ -32,12 +34,23 @@ type Props = {
 export function TransactionList({ refreshKey, onEdit }: Props) {
   const [dateFilter, setDateFilter] = useState<DateFilter>(defaultDateFilter);
   const [query, setQuery] = useState("");
-  const [records, setRecords] = useState<Transaction[]>([]);
+  const [allRecords, setAllRecords] = useState<Transaction[]>([]);
+  const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<TransactionType[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
 
   const loadRecords = useCallback(async () => {
+    setAllRecords(await transactionRouter.exportAll());
+  }, []);
+
+  const currencies = useMemo(
+    () => Array.from(new Set(allRecords.map((record) => record.currency))).sort(),
+    [allRecords]
+  );
+
+  const records = useMemo(() => {
     const normalizedQuery = normalizeText(query);
-    const nextRecords = (await transactionRouter.exportAll())
+    return allRecords
       .filter((record) => matchesDateFilter(record, dateFilter))
       .filter(
         (record) =>
@@ -45,10 +58,10 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
           normalizeText(record.customerName).includes(normalizedQuery) ||
           normalizeText(record.orNumber).includes(normalizedQuery)
       )
+      .filter((record) => selectedCurrencies.length === 0 || selectedCurrencies.includes(record.currency))
+      .filter((record) => selectedTypes.length === 0 || selectedTypes.includes(record.transactionType))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-    setRecords(nextRecords);
-  }, [dateFilter, query]);
+  }, [allRecords, dateFilter, query, selectedCurrencies, selectedTypes]);
 
   useEffect(() => {
     loadRecords();
@@ -59,6 +72,23 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
     await transactionRouter.delete(deleteTarget.id);
     setDeleteTarget(null);
     await loadRecords();
+  }
+
+  function toggleCurrency(currency: string) {
+    setSelectedCurrencies((current) =>
+      current.includes(currency) ? current.filter((value) => value !== currency) : [...current, currency]
+    );
+  }
+
+  function toggleType(type: TransactionType) {
+    setSelectedTypes((current) =>
+      current.includes(type) ? current.filter((value) => value !== type) : [...current, type]
+    );
+  }
+
+  function clearAdvancedFilters() {
+    setSelectedCurrencies([]);
+    setSelectedTypes([]);
   }
 
   return (
@@ -79,6 +109,40 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
             />
           </InputGroup>
         </div>
+        <div className="space-y-3 border-t border-border pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <Label>Advanced filters</Label>
+            <Button type="button" variant="outline" size="sm" onClick={clearAdvancedFilters}>
+              Clear All Filters
+            </Button>
+          </div>
+
+          <FilterGroup label="Currency">
+            {currencies.length > 0 ? (
+              currencies.map((currency) => (
+                <FilterCheck
+                  key={currency}
+                  label={currency}
+                  checked={selectedCurrencies.includes(currency)}
+                  onCheckedChange={() => toggleCurrency(currency)}
+                />
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No currencies yet.</p>
+            )}
+          </FilterGroup>
+
+          <FilterGroup label="Transaction type">
+            {(["BUY", "SELL"] as TransactionType[]).map((type) => (
+              <FilterCheck
+                key={type}
+                label={type}
+                checked={selectedTypes.includes(type)}
+                onCheckedChange={() => toggleType(type)}
+              />
+            ))}
+          </FilterGroup>
+        </div>
       </div>
 
       {records.length === 0 ? (
@@ -96,18 +160,18 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
                     <p className="text-sm text-muted-foreground">
                       {record.date} - OR {record.orNumber}
                     </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold">{record.currency}</span>
-                    <span
-                      className={
-                        record.transactionType === "BUY"
-                          ? "rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white"
-                          : "rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white"
-                      }
-                    >
-                      {record.transactionType}
-                    </span>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <RecordBadge>{record.currency}</RecordBadge>
+                      <RecordBadge
+                        className={
+                          record.transactionType === "BUY"
+                            ? "bg-emerald-600 text-white"
+                            : "bg-red-600 text-white"
+                        }
+                      >
+                        {record.transactionType}
+                      </RecordBadge>
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -183,5 +247,39 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-semibold">{value}</p>
     </div>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+function FilterCheck({
+  label,
+  checked,
+  onCheckedChange
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium">
+      <Checkbox checked={checked} onCheckedChange={onCheckedChange} />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function RecordBadge({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <span className={cn("inline-flex h-6 items-center rounded-md bg-muted px-2 text-xs font-semibold", className)}>
+      {children}
+    </span>
   );
 }
