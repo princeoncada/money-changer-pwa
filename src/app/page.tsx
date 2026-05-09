@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BackupPanel } from "@/components/backup-panel";
 import { BottomNav, type AppTab } from "@/components/bottom-nav";
 import { DailyTotals } from "@/components/daily-totals";
-import { TransactionForm } from "@/components/transaction-form";
+import { createEmptyEncodeDraft, TransactionForm, type EncodeDraft } from "@/components/transaction-form";
 import { TransactionList } from "@/components/transaction-list";
 import type { Transaction } from "@/types/transaction";
 
@@ -18,6 +18,7 @@ const titles: Record<AppTab, string> = {
 export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("encode");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [encodeDraft, setEncodeDraft] = useState<EncodeDraft>(() => createEmptyEncodeDraft());
   const [editingRecord, setEditingRecord] = useState<Transaction | null>(null);
   const [focusedRecordId, setFocusedRecordId] = useState<string | null>(null);
 
@@ -53,6 +54,8 @@ export default function Home() {
 
         {activeTab === "encode" && (
           <TransactionForm
+            draft={encodeDraft}
+            onDraftChange={setEncodeDraft}
             editingRecord={editingRecord}
             onSaved={refresh}
             onCancelEdit={cancelEdit}
