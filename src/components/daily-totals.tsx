@@ -8,7 +8,10 @@ import {
   matchesDateFilter,
   type DateFilter
 } from "@/components/date-range-filter";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calculateDailyTotals, calculateIncomeReports } from "@/lib/calculations";
 import { transactionRouter } from "@/lib/local-api/transactions";
@@ -18,14 +21,22 @@ import type { CurrencyIncomeReport, DailyTotals as DailyTotalsType, Transaction 
 export function DailyTotals({ refreshKey }: { refreshKey: number }) {
   const [dateFilter, setDateFilter] = useState<DateFilter>(defaultDateFilter);
   const [records, setRecords] = useState<Transaction[]>([]);
+  const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
 
   useEffect(() => {
     transactionRouter.exportAll().then(setRecords);
   }, [refreshKey]);
 
+  const currencies = useMemo(
+    () => Array.from(new Set(records.map((record) => record.currency))).sort(),
+    [records]
+  );
   const filteredRecords = useMemo(
-    () => records.filter((record) => matchesDateFilter(record, dateFilter)),
-    [dateFilter, records]
+    () =>
+      records
+        .filter((record) => matchesDateFilter(record, dateFilter))
+        .filter((record) => selectedCurrencies.length === 0 || selectedCurrencies.includes(record.currency)),
+    [dateFilter, records, selectedCurrencies]
   );
   const totals = useMemo<DailyTotalsType>(
     () => calculateDailyTotals("", filteredRecords),
@@ -34,9 +45,38 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
   const incomeReports = useMemo(() => calculateIncomeReports(filteredRecords), [filteredRecords]);
   const netPhpMovement = totals.totalSellPhp - totals.totalBuyPhp;
 
+  function toggleCurrency(currency: string) {
+    setSelectedCurrencies((current) =>
+      current.includes(currency) ? current.filter((value) => value !== currency) : [...current, currency]
+    );
+  }
+
   return (
     <div className="space-y-4">
       <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-soft">
+        <div className="flex items-center justify-between gap-3">
+          <Label>Currency filters</Label>
+          <Button type="button" variant="outline" size="sm" onClick={() => setSelectedCurrencies([])}>
+            Clear All Filters
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {currencies.length > 0 ? (
+            currencies.map((currency) => (
+              <FilterCheck
+                key={currency}
+                label={currency}
+                checked={selectedCurrencies.includes(currency)}
+                onCheckedChange={() => toggleCurrency(currency)}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">No currencies yet.</p>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <SummaryCard label="Total Records" value={String(totals.totalRecords)} />
@@ -174,5 +214,22 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
         <p className="mt-1 text-xl font-bold tracking-normal">{value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function FilterCheck({
+  label,
+  checked,
+  onCheckedChange
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium">
+      <Checkbox checked={checked} onCheckedChange={onCheckedChange} />
+      <span>{label}</span>
+    </label>
   );
 }
