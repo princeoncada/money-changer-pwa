@@ -2,6 +2,7 @@
 
 import { Download, Trash2, Upload } from "lucide-react";
 import { ChangeEvent, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,6 @@ import type { Transaction } from "@/types/transaction";
 
 export function BackupPanel({ onChanged }: { onChanged: () => void }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [message, setMessage] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
 
   async function exportJson() {
@@ -31,7 +31,10 @@ export function BackupPanel({ onChanged }: { onChanged: () => void }) {
     link.download = `money-changer-backup-${todayLocal()}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    setMessage(`Exported ${records.length} records.`);
+    toast.success("Backup saved", {
+      description: "Your JSON backup was exported successfully.",
+      duration: 3000
+    });
   }
 
   async function restoreJson(event: ChangeEvent<HTMLInputElement>) {
@@ -40,7 +43,10 @@ export function BackupPanel({ onChanged }: { onChanged: () => void }) {
     const text = await file.text();
     const records = JSON.parse(text) as Transaction[];
     const restored = await transactionRouter.restoreAll(records);
-    setMessage(`Restored ${restored} records.`);
+    toast.success("Backup restored", {
+      description: `${restored} records restored successfully.`,
+      duration: 3000
+    });
     onChanged();
     event.target.value = "";
   }
@@ -48,7 +54,10 @@ export function BackupPanel({ onChanged }: { onChanged: () => void }) {
   async function clearAll() {
     await transactionRouter.clearAll();
     setConfirmClear(false);
-    setMessage("All records cleared from this phone.");
+    toast.success("Records cleared", {
+      description: "All saved records were removed from this phone.",
+      duration: 3000
+    });
     onChanged();
   }
 
@@ -56,9 +65,7 @@ export function BackupPanel({ onChanged }: { onChanged: () => void }) {
     <div className="space-y-4">
       <Alert variant="warning">Data is saved only on this phone. Export backups regularly.</Alert>
 
-      {message && <Alert>{message}</Alert>}
-
-      <Card className="border border-border bg-card shadow-sm">
+      <Card className="border border-border bg-card shadow-lg">
         <CardHeader>
           <CardTitle>Backup</CardTitle>
         </CardHeader>
