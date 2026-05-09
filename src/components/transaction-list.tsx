@@ -2,7 +2,7 @@
 
 import { Edit3, Search, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DateRangeFilter,
   defaultDateFilter,
@@ -29,15 +29,18 @@ import type { Transaction, TransactionType } from "@/types/transaction";
 type Props = {
   refreshKey: number;
   onEdit: (record: Transaction) => void;
+  highlightedRecordId?: string | null;
 };
 
-export function TransactionList({ refreshKey, onEdit }: Props) {
+export function TransactionList({ refreshKey, onEdit, highlightedRecordId }: Props) {
   const [dateFilter, setDateFilter] = useState<DateFilter>(defaultDateFilter);
   const [query, setQuery] = useState("");
   const [allRecords, setAllRecords] = useState<Transaction[]>([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<TransactionType[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
+  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
+  const recordRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const loadRecords = useCallback(async () => {
     setAllRecords(await transactionRouter.exportAll());
@@ -66,6 +69,31 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
   useEffect(() => {
     loadRecords();
   }, [loadRecords, refreshKey]);
+
+  useEffect(() => {
+    if (!highlightedRecordId) return;
+    const target = allRecords.find((record) => record.id === highlightedRecordId);
+    if (!target) return;
+
+    setDateFilter({ from: target.date, to: target.date });
+  }, [allRecords, highlightedRecordId]);
+
+  useEffect(() => {
+    if (!highlightedRecordId || !records.some((record) => record.id === highlightedRecordId)) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const element = recordRefs.current[highlightedRecordId];
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      element?.focus({ preventScroll: true });
+      setActiveHighlightId(highlightedRecordId);
+    });
+    const timeout = window.setTimeout(() => setActiveHighlightId(null), 2400);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [highlightedRecordId, records]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -152,58 +180,73 @@ export function TransactionList({ refreshKey, onEdit }: Props) {
       ) : (
         <div className="space-y-3">
           {records.map((record) => (
-            <Card key={record.id} className="border border-border bg-card shadow-sm">
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{record.customerName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {record.date} - OR {record.orNumber}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <RecordBadge>{record.currency}</RecordBadge>
-                      <RecordBadge
-                        className={
-                          record.transactionType === "BUY"
-                            ? "bg-emerald-600 text-white"
-                            : "bg-red-600 text-white"
-                        }
-                      >
-                        {record.transactionType}
-                      </RecordBadge>
+            <div
+              key={record.id}
+              id={`record-${record.id}`}
+              ref={(element) => {
+                recordRefs.current[record.id] = element;
+              }}
+              tabIndex={-1}
+              className="rounded-xl outline-none"
+            >
+              <Card
+                className={cn(
+                  "border border-border bg-card shadow-sm transition-colors duration-500",
+                  activeHighlightId === record.id && "border-primary bg-primary/5 ring-2 ring-primary/30"
+                )}
+              >
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{record.customerName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {record.date} - OR {record.orNumber}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <RecordBadge>{record.currency}</RecordBadge>
+                        <RecordBadge
+                          className={
+                            record.transactionType === "BUY"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-red-600 text-white"
+                          }
+                        >
+                          {record.transactionType}
+                        </RecordBadge>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <Info label="Currency Amount" value={formatNumber(record.currencyAmount)} />
-                  <Info label={record.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"} value={formatRate(record.rate)} />
-                  <Info label="Total PHP" value={formatPeso(record.totalPhp)} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" onClick={() => onEdit(record)}>
-                    <Edit3 className="h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button type="button" variant="destructive" onClick={() => setDeleteTarget(record)}>
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <Info label="Currency Amount" value={formatNumber(record.currencyAmount)} />
+                    <Info label={record.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"} value={formatRate(record.rate)} />
+                    <Info label="Total PHP" value={formatPeso(record.totalPhp)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant="outline" onClick={() => onEdit(record)}>
+                      <Edit3 className="h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button type="button" variant="destructive" onClick={() => setDeleteTarget(record)}>
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           ))}
         </div>
       )}
 
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent>
+        <DialogContent className="border border-border bg-card shadow-xl">
           <DialogHeader>
             <DialogTitle>Delete record?</DialogTitle>
             <DialogDescription>This removes the record from this phone.</DialogDescription>
           </DialogHeader>
 
           {deleteTarget && (
-            <div className="rounded-md border border-border bg-muted p-3 text-sm">
+            <div className="rounded-md border border-border bg-muted p-3 text-sm text-foreground">
               <DeleteDetail label="Customer" value={deleteTarget.customerName} />
               <DeleteDetail label="Date" value={deleteTarget.date} />
               <DeleteDetail label="OR Number" value={deleteTarget.orNumber} />
