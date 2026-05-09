@@ -18,7 +18,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { calculateDailyTotals, calculateIncomeReports } from "@/lib/calculations";
 import { transactionRouter } from "@/lib/local-api/transactions";
-import { cn, formatNumber, formatPeso, formatRate } from "@/lib/utils";
+import {
+  cn,
+  formatForeignCurrencyAmount,
+  formatPeso,
+  formatRate,
+  loadAppPreferences,
+  saveAppPreference
+} from "@/lib/utils";
 import type { CurrencyIncomeReport, DailyTotals as DailyTotalsType, Transaction } from "@/types/transaction";
 
 export function DailyTotals({ refreshKey }: { refreshKey: number }) {
@@ -29,6 +36,10 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
   useEffect(() => {
     transactionRouter.exportAll().then(setRecords);
   }, [refreshKey]);
+
+  useEffect(() => {
+    setDateFilter(loadAppPreferences().totalsDateFilter);
+  }, []);
 
   const currencies = useMemo(
     () => Array.from(new Set(records.map((record) => record.currency))).sort(),
@@ -65,11 +76,16 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
     );
   }
 
+  function setTotalsDateFilter(value: DateFilter) {
+    setDateFilter(value);
+    saveAppPreference("totalsDateFilter", value);
+  }
+
   return (
     <div className="space-y-4">
-      <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+      <DateRangeFilter value={dateFilter} onChange={setTotalsDateFilter} />
 
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-soft">
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between gap-3">
           <Label>Currency filters</Label>
           <Button type="button" variant="outline" size="sm" className="rounded-md" onClick={() => setSelectedCurrencies([])}>
@@ -100,7 +116,7 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
             <CountCard label="SELL" value={String(totals.totalSellRecords)} />
           </div>
 
-          <Card className="border border-border bg-card shadow-sm">
+          <Card className="border border-border bg-card shadow-lg">
             <CardHeader className="pb-0">
               <CardTitle>Financial Overview</CardTitle>
             </CardHeader>
@@ -173,8 +189,8 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
                     {totals.byCurrency.map((currency) => (
                       <TableRow key={currency.currency}>
                         <TableCell className="font-semibold">{currency.currency}</TableCell>
-                        <TableCell>{formatNumber(currency.boughtAmount)}</TableCell>
-                        <TableCell>{formatNumber(currency.soldAmount)}</TableCell>
+                        <TableCell>{formatForeignCurrencyAmount(currency.boughtAmount, currency.currency)}</TableCell>
+                        <TableCell>{formatForeignCurrencyAmount(currency.soldAmount, currency.currency)}</TableCell>
                         <TableCell>{formatPeso(currency.buyTotalPhp)}</TableCell>
                         <TableCell>{formatPeso(currency.sellTotalPhp)}</TableCell>
                       </TableRow>
@@ -217,7 +233,7 @@ function IncomeReportRow({ report }: { report: CurrencyIncomeReport }) {
         : null;
 
   return (
-    <div className="rounded-md border border-border p-3">
+    <div className="rounded-md border border-border bg-card p-3 shadow-lg">
       <div className="mb-3 flex items-center justify-between gap-3">
         <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold">{report.currency}</span>
         {hasMatchedIncome ? (
@@ -232,9 +248,9 @@ function IncomeReportRow({ report }: { report: CurrencyIncomeReport }) {
       {message && <p className="mb-3 text-sm text-muted-foreground">{message}</p>}
 
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <Metric label="Bought Amount" value={formatNumber(report.totalBoughtAmount)} />
-        <Metric label="Sold Amount" value={formatNumber(report.totalSoldAmount)} />
-        <Metric label="Matched Sold Amount" value={formatNumber(report.matchedSoldAmount)} />
+        <Metric label="Bought Amount" value={formatForeignCurrencyAmount(report.totalBoughtAmount, report.currency)} />
+        <Metric label="Sold Amount" value={formatForeignCurrencyAmount(report.totalSoldAmount, report.currency)} />
+        <Metric label="Matched Sold Amount" value={formatForeignCurrencyAmount(report.matchedSoldAmount, report.currency)} />
         <Metric label="Avg Buy Rate" value={report.averageBuyRate === null ? "Pending" : formatRate(report.averageBuyRate)} />
         <Metric label="Avg Sell Rate" value={report.averageSellRate === null ? "Pending" : formatRate(report.averageSellRate)} />
         <Metric
@@ -255,8 +271,8 @@ function IncomeReportRow({ report }: { report: CurrencyIncomeReport }) {
               : formatPeso(report.estimatedIncomePhp ?? 0)
           }
         />
-        <Metric label="Unmatched Buy Amount" value={formatNumber(report.unmatchedBuyAmount)} />
-        <Metric label="Unmatched Sell Amount" value={formatNumber(report.unmatchedSellAmount)} />
+        <Metric label="Unmatched Buy Amount" value={formatForeignCurrencyAmount(report.unmatchedBuyAmount, report.currency)} />
+        <Metric label="Unmatched Sell Amount" value={formatForeignCurrencyAmount(report.unmatchedSellAmount, report.currency)} />
       </div>
     </div>
   );
@@ -289,7 +305,7 @@ function CashFlowPart({ label, value, tone }: { label: string; value: string; to
 
 function CountCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="border border-border bg-card shadow-sm">
+    <Card className="border border-border bg-card shadow-lg">
       <CardContent className="p-3 text-center">
         <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">{label}</p>
         <p className="mt-1 text-2xl font-bold tracking-normal">{value}</p>
