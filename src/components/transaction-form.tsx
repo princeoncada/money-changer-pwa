@@ -247,9 +247,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
               onChange={(value) => setDecimalInput(value, setRateInput)}
             />
             <Field label="Total PHP" error={saveValidation.errors.totalPhp}>
-              <div className="flex h-12 items-center rounded-md border border-input bg-muted px-3 text-lg font-semibold">
-                {formatPeso(computedTotalPhp)}
-              </div>
+              <Input value={formatPeso(computedTotalPhp)} readOnly className="bg-muted font-semibold" />
             </Field>
           </div>
 
