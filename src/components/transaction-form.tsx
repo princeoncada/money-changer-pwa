@@ -22,7 +22,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/compon
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateTotalPhp } from "@/lib/calculations";
 import { transactionRouter } from "@/lib/local-api/transactions";
-import { cn, formatPeso, todayLocal } from "@/lib/utils";
+import { cn, formatPeso, getCurrencySymbol, loadAppPreferences, saveAppPreference, todayLocal } from "@/lib/utils";
 import { findDuplicateWarnings, validateTransactionInput } from "@/lib/validation";
 import type { Transaction, TransactionInput } from "@/types/transaction";
 
@@ -37,6 +37,41 @@ const emptyInput = (): TransactionInput => ({
   totalPhp: 0,
 });
 
+export type EncodeDraft = {
+  date: string;
+  customerName: string;
+  orNumber: string;
+  currency: string;
+  transactionType: TransactionInput["transactionType"];
+  currencyAmountInput: string;
+  rateInput: string;
+};
+
+export function createEmptyEncodeDraft(): EncodeDraft {
+  return {
+    date: loadAppPreferences().encodeDate,
+    customerName: "",
+    orNumber: "",
+    currency: "USD",
+    transactionType: "BUY",
+    currencyAmountInput: "",
+    rateInput: ""
+  };
+}
+
+function draftToInput(draft: EncodeDraft): TransactionInput {
+  return {
+    date: draft.date,
+    customerName: draft.customerName,
+    orNumber: draft.orNumber,
+    currency: draft.currency,
+    transactionType: draft.transactionType,
+    currencyAmount: 0,
+    rate: 0,
+    totalPhp: 0
+  };
+}
+
 function sanitizeDecimalInput(value: string) {
   const cleaned = value.replace(/,/g, "").trim();
 
@@ -45,6 +80,25 @@ function sanitizeDecimalInput(value: string) {
   if (!/^\d*\.?\d*$/.test(cleaned)) return null;
 
   return cleaned;
+}
+
+function formatDecimalInput(value: string) {
+  if (!value) return "";
+
+  const [wholePart, decimalPart] = value.split(".");
+  const formattedWhole = wholePart
+    ? Number(wholePart).toLocaleString("en-US", { maximumFractionDigits: 0 })
+    : "0";
+
+  if (value.includes(".")) return `${formattedWhole}.${decimalPart ?? ""}`;
+
+  return formattedWhole;
+}
+
+function toTitleName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/(^|[\s'-])([a-z])/g, (_match, separator: string, char: string) => `${separator}${char.toUpperCase()}`);
 }
 
 function decimalStringToNumber(value: string): number | null {
@@ -57,12 +111,16 @@ function decimalStringToNumber(value: string): number | null {
 }
 
 type Props = {
+  draft: EncodeDraft;
+  onDraftChange: (draft: EncodeDraft) => void;
   editingRecord?: Transaction | null;
   onSaved: (recordId?: string) => void;
   onCancelEdit: () => void;
 };
 
-export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props) {
+type DraftField = Exclude<keyof EncodeDraft, "currencyAmountInput" | "rateInput">;
+
+export function TransactionForm({ draft, onDraftChange, editingRecord, onSaved, onCancelEdit }: Props) {
   const [form, setForm] = useState<TransactionInput>(emptyInput);
   const [currencyAmountInput, setCurrencyAmountInput] = useState("");
   const [rateInput, setRateInput] = useState("");
@@ -93,23 +151,37 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     setRateInput("");
   }, [editingRecord]);
 
-  const parsedCurrencyAmount = decimalStringToNumber(currencyAmountInput);
-  const parsedRate = decimalStringToNumber(rateInput);
+  const activeForm = useMemo(
+    () => (editingRecord ? form : draftToInput(draft)),
+    [draft, editingRecord, form]
+  );
+  const activeCurrencyAmountInput = editingRecord ? currencyAmountInput : draft.currencyAmountInput;
+  const activeRateInput = editingRecord ? rateInput : draft.rateInput;
+  const parsedCurrencyAmount = decimalStringToNumber(activeCurrencyAmountInput);
+  const parsedRate = decimalStringToNumber(activeRateInput);
   const computedTotalPhp =
     parsedCurrencyAmount !== null && parsedRate !== null ? calculateTotalPhp(parsedCurrencyAmount, parsedRate) : 0;
   const formForSave = useMemo(
     () => ({
-      ...form,
+      ...activeForm,
       currencyAmount: parsedCurrencyAmount ?? 0,
       rate: parsedRate ?? 0,
       totalPhp: computedTotalPhp
     }),
-    [computedTotalPhp, form, parsedCurrencyAmount, parsedRate]
+    [activeForm, computedTotalPhp, parsedCurrencyAmount, parsedRate]
   );
   const saveValidation = useMemo(() => validateTransactionInput(formForSave), [formForSave]);
   const hasErrors = Object.keys(saveValidation.errors).length > 0;
+  const orNumberWarnings = useMemo(
+    () => warnings.filter((warning) => warning.toLowerCase().includes("or number")),
+    [warnings]
+  );
+  const generalWarnings = useMemo(
+    () => warnings.filter((warning) => !warning.toLowerCase().includes("or number")),
+    [warnings]
+  );
   const customerSuggestions = useMemo(() => {
-    const normalizedCurrent = form.customerName.trim().toLowerCase();
+    const normalizedCurrent = activeForm.customerName.trim().toLowerCase();
     if (!normalizedCurrent) return [];
 
     const seen = new Set<string>();
@@ -124,7 +196,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
         return normalizedName.includes(normalizedCurrent) && normalizedName !== normalizedCurrent;
       })
       .slice(0, 8);
-  }, [existingRecords, form.customerName]);
+  }, [activeForm.customerName, existingRecords]);
 
   useEffect(() => {
     let active = true;
@@ -136,15 +208,40 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     };
   }, [formForSave, editingRecord?.id, saveValidation.warnings]);
 
-  function setField<K extends keyof TransactionInput>(key: K, value: TransactionInput[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+  function setField<K extends DraftField>(key: K, value: EncodeDraft[K]) {
+    if (editingRecord) {
+      setForm((current) => ({ ...current, [key]: value }));
+      return;
+    }
+
+    onDraftChange({ ...draft, [key]: value });
   }
 
-  function setDecimalInput(value: string, setter: (value: string) => void) {
+  function setEncodeDate(date: string) {
+    setField("date", date);
+    saveAppPreference("encodeDate", date);
+  }
+
+  function setDecimalInput(value: string, field: "currencyAmountInput" | "rateInput") {
     const next = sanitizeDecimalInput(value);
     if (next === null) return;
 
-    setter(next);
+    if (editingRecord) {
+      if (field === "currencyAmountInput") {
+        setCurrencyAmountInput(next);
+      } else {
+        setRateInput(next);
+      }
+      return;
+    }
+
+    onDraftChange({ ...draft, [field]: next });
+  }
+
+  function clearDraft() {
+    onDraftChange(createEmptyEncodeDraft());
+    setWarnings([]);
+    setCustomerComboboxOpen(false);
   }
 
   async function handleSave() {
@@ -166,6 +263,9 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     });
 
     setExistingRecords(await transactionRouter.exportAll());
+    if (!wasEditing) {
+      onDraftChange(createEmptyEncodeDraft());
+    }
     setForm(emptyInput());
     setCurrencyAmountInput("");
     setRateInput("");
@@ -177,10 +277,10 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
       <Card className="border border-border bg-card shadow-sm">
         <CardContent className="space-y-4 p-4">
           {editingRecord && <p className="text-sm font-medium text-muted-foreground">Editing record</p>}
-          {warnings.length > 0 && (
-            <Alert>
+          {generalWarnings.length > 0 && (
+            <Alert variant="warning">
               <ul className="space-y-1">
-                {warnings.map((warning) => (
+                {generalWarnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>
@@ -189,27 +289,36 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
 
           <div className="grid gap-3">
             <Field label="Date" error={saveValidation.errors.date}>
-              <DatePicker value={form.date} onChange={(date) => setField("date", date)} />
+              <DatePicker value={activeForm.date} onChange={setEncodeDate} />
             </Field>
             <Field label="Customer Name / KYC" error={saveValidation.errors.customerName}>
               <CustomerCombobox
-                value={form.customerName}
+                value={activeForm.customerName}
                 open={customerComboboxOpen}
                 suggestions={customerSuggestions}
                 onOpenChange={setCustomerComboboxOpen}
-                onChange={(customerName) => setField("customerName", customerName)}
+                onChange={(customerName) => setField("customerName", toTitleName(customerName))}
               />
             </Field>
             <Field label="OR Number" error={saveValidation.errors.orNumber}>
               <Input
-                value={form.orNumber}
+                value={activeForm.orNumber}
                 onChange={(event) => setField("orNumber", event.target.value)}
                 placeholder="Official receipt number"
               />
+              {orNumberWarnings.length > 0 && (
+                <Alert variant="warning">
+                  <ul className="space-y-1">
+                    {orNumberWarnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </Alert>
+              )}
             </Field>
             <Field label="Transaction Type" error={saveValidation.errors.transactionType}>
               <Select
-                value={form.transactionType}
+                value={activeForm.transactionType}
                 onValueChange={(value) => setField("transactionType", value as TransactionInput["transactionType"])}
               >
                 <SelectTrigger className="w-full">
@@ -222,7 +331,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
               </Select>
             </Field>
             <Field label="Currency" error={saveValidation.errors.currency}>
-              <Select value={form.currency} onValueChange={(value) => setField("currency", value)}>
+              <Select value={activeForm.currency} onValueChange={(value) => setField("currency", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
@@ -237,29 +346,34 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
             </Field>
             <NumberField
               label="Currency Amount"
-              value={currencyAmountInput}
+              value={formatDecimalInput(activeCurrencyAmountInput)}
               error={saveValidation.errors.currencyAmount}
-              onChange={(value) => setDecimalInput(value, setCurrencyAmountInput)}
+              prefix={getCurrencySymbol(activeForm.currency)}
+              onChange={(value) => setDecimalInput(value, "currencyAmountInput")}
             />
             <NumberField
-              label={form.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"}
-              value={rateInput}
+              label={activeForm.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"}
+              value={activeRateInput}
               error={saveValidation.errors.rate}
-              onChange={(value) => setDecimalInput(value, setRateInput)}
+              onChange={(value) => setDecimalInput(value, "rateInput")}
             />
             <Field label="Total PHP" error={saveValidation.errors.totalPhp}>
               <Input value={formatPeso(computedTotalPhp)} readOnly className="bg-muted font-semibold" />
             </Field>
           </div>
 
-          <div className="grid grid-cols-[1fr_auto] gap-2">
+          <div className={cn("grid gap-2", editingRecord ? "grid-cols-[1fr_auto]" : "grid-cols-1")}>
             <Button type="button" onClick={handleSave} disabled={hasErrors}>
               <Check className="h-5 w-5" />
               {editingRecord ? "Update" : "Save"}
             </Button>
-            {editingRecord && (
+            {editingRecord ? (
               <Button type="button" variant="outline" onClick={onCancelEdit}>
                 Cancel
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={clearDraft}>
+                Clear Entries
               </Button>
             )}
           </div>
@@ -381,22 +495,32 @@ function NumberField({
   label,
   value,
   error,
+  prefix,
   onChange
 }: {
   label: string;
   value: string;
   error?: string;
+  prefix?: string;
   onChange: (value: string) => void;
 }) {
   return (
     <Field label={label} error={error}>
-      <Input
-        type="text"
-        inputMode="decimal"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="0.00"
-      />
+      <div className="relative">
+        {prefix && (
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-medium text-muted-foreground">
+            {prefix}
+          </span>
+        )}
+        <Input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="0.00"
+          className={prefix ? "pl-10" : undefined}
+        />
+      </div>
     </Field>
   );
 }
