@@ -142,14 +142,24 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
           <p className="text-sm text-muted-foreground">Review currency totals or matched income details.</p>
         </div>
         <Tabs defaultValue="currency" className="space-y-3">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="currency" className="hover:text-emerald-700">Currency Totals</TabsTrigger>
-            <TabsTrigger value="income" className="hover:text-emerald-700">Income Report</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 rounded-lg p-1 group-data-horizontal/tabs:h-auto">
+            <TabsTrigger
+              value="currency"
+              className="h-auto min-w-0 truncate rounded-md px-2 py-2 text-center text-sm whitespace-nowrap hover:text-emerald-700"
+            >
+              Currency Totals
+            </TabsTrigger>
+            <TabsTrigger
+              value="income"
+              className="h-auto min-w-0 truncate rounded-md px-2 py-2 text-center text-sm whitespace-nowrap hover:text-emerald-700"
+            >
+              Income Report
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="currency" className="mt-0">
+          <TabsContent value="currency" className="mt-3">
             {totals.byCurrency.length > 0 ? (
-              <div className="overflow-x-auto rounded-md border border-border bg-card">
-                <Table className="min-w-[620px]">
+              <div className="w-full overflow-x-auto rounded-md border border-border bg-card">
+                <Table className="min-w-[480px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Currency</TableHead>
@@ -178,7 +188,7 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
               </p>
             )}
           </TabsContent>
-          <TabsContent value="income" className="mt-0">
+          <TabsContent value="income" className="mt-3">
             {incomeReports.length > 0 ? (
               <div className="space-y-3">
                 {incomeReports.map((report) => (
