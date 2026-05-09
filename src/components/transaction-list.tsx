@@ -23,7 +23,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { transactionRouter } from "@/lib/local-api/transactions";
-import { cn, formatNumber, formatPeso, formatRate, normalizeText } from "@/lib/utils";
+import {
+  cn,
+  formatForeignCurrencyAmount,
+  formatPeso,
+  formatRate,
+  loadAppPreferences,
+  normalizeText,
+  saveAppPreference
+} from "@/lib/utils";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
 type Props = {
@@ -78,12 +86,23 @@ export function TransactionList({
   }, [loadRecords, refreshKey]);
 
   useEffect(() => {
+    setDateFilter(loadAppPreferences().recordsDateFilter);
+  }, []);
+
+  useEffect(() => {
     if (!highlightedRecordId) return;
     const target = allRecords.find((record) => record.id === highlightedRecordId);
     if (!target) return;
 
-    setDateFilter({ from: target.date, to: target.date });
+    const targetFilter = { from: target.date, to: target.date };
+    setDateFilter(targetFilter);
+    saveAppPreference("recordsDateFilter", targetFilter);
   }, [allRecords, highlightedRecordId]);
+
+  function setRecordsDateFilter(value: DateFilter) {
+    setDateFilter(value);
+    saveAppPreference("recordsDateFilter", value);
+  }
 
   useEffect(() => {
     if (
@@ -141,7 +160,7 @@ export function TransactionList({
 
   return (
     <div className="space-y-4">
-      <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+      <DateRangeFilter value={dateFilter} onChange={setRecordsDateFilter} />
 
       <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-soft">
         <div className="space-y-4">
@@ -238,7 +257,10 @@ export function TransactionList({
                   </div>
                   <div className="h-px bg-border" />
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <Info label="Currency Amount" value={formatNumber(record.currencyAmount)} />
+                    <Info
+                      label="Currency Amount"
+                      value={formatForeignCurrencyAmount(record.currencyAmount, record.currency)}
+                    />
                     <Info label={record.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"} value={formatRate(record.rate)} />
                     <Info label="Total PHP" value={formatPeso(record.totalPhp)} />
                   </div>
@@ -273,7 +295,10 @@ export function TransactionList({
               <DeleteDetail label="OR Number" value={deleteTarget.orNumber} />
               <DeleteDetail label="Type" value={deleteTarget.transactionType} />
               <DeleteDetail label="Currency" value={deleteTarget.currency} />
-              <DeleteDetail label="Amount" value={formatNumber(deleteTarget.currencyAmount)} />
+              <DeleteDetail
+                label="Amount"
+                value={formatForeignCurrencyAmount(deleteTarget.currencyAmount, deleteTarget.currency)}
+              />
               <DeleteDetail
                 label={deleteTarget.transactionType === "BUY" ? "Buying Rate" : "Selling Rate"}
                 value={formatRate(deleteTarget.rate)}
