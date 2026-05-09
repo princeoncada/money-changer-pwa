@@ -21,8 +21,9 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateTotalPhp } from "@/lib/calculations";
+import { getCurrencyLabel, getCurrencySymbol, loadCurrencyTypes, type CurrencyType } from "@/lib/currencies";
 import { transactionRouter } from "@/lib/local-api/transactions";
-import { cn, formatPeso, getCurrencySymbol, loadAppPreferences, saveAppPreference, todayLocal } from "@/lib/utils";
+import { cn, formatPeso, loadAppPreferences, saveAppPreference, todayLocal } from "@/lib/utils";
 import { findDuplicateWarnings, validateTransactionInput } from "@/lib/validation";
 import type { Transaction, TransactionInput } from "@/types/transaction";
 
@@ -125,11 +126,13 @@ export function TransactionForm({ draft, onDraftChange, editingRecord, onSaved, 
   const [currencyAmountInput, setCurrencyAmountInput] = useState("");
   const [rateInput, setRateInput] = useState("");
   const [existingRecords, setExistingRecords] = useState<Transaction[]>([]);
+  const [currencyTypes, setCurrencyTypes] = useState<CurrencyType[]>([]);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
+    setCurrencyTypes(loadCurrencyTypes());
     transactionRouter.exportAll().then((records) => {
       if (active) setExistingRecords(records);
     });
@@ -336,9 +339,12 @@ export function TransactionForm({ draft, onDraftChange, editingRecord, onSaved, 
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent position="popper" className="z-[80] border border-border bg-white shadow-xl">
-                  {["USD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "HKD", "KRW", "CNY"].map((currency) => (
-                    <SelectItem key={currency} value={currency}>
-                      {currency}
+                  {currencyTypes.map((currency) => (
+                    <SelectItem key={currency.code} value={currency.code}>
+                      <span className="flex w-full items-center justify-between gap-3">
+                        <span>{getCurrencyLabel(currency.code)}</span>
+                        <span className="text-muted-foreground">{currency.symbol}</span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
