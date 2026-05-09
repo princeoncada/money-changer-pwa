@@ -58,7 +58,7 @@ function decimalStringToNumber(value: string): number | null {
 
 type Props = {
   editingRecord?: Transaction | null;
-  onSaved: () => void;
+  onSaved: (recordId?: string) => void;
   onCancelEdit: () => void;
 };
 
@@ -151,10 +151,11 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     if (hasErrors) return;
     const wasEditing = Boolean(editingRecord);
 
+    let savedRecord: Transaction;
     if (editingRecord) {
-      await transactionRouter.update(editingRecord.id, formForSave);
+      savedRecord = await transactionRouter.update(editingRecord.id, formForSave);
     } else {
-      await transactionRouter.create(formForSave);
+      savedRecord = await transactionRouter.create(formForSave);
     }
 
     toast.success(wasEditing ? "Record updated" : "Record saved", {
@@ -168,7 +169,7 @@ export function TransactionForm({ editingRecord, onSaved, onCancelEdit }: Props)
     setForm(emptyInput());
     setCurrencyAmountInput("");
     setRateInput("");
-    onSaved();
+    onSaved(wasEditing ? savedRecord.id : undefined);
   }
 
   return (
