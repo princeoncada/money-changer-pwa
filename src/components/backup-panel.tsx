@@ -54,7 +54,7 @@ export function BackupPanel({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="space-y-4">
-      <Alert>Data is saved only on this phone. Export backups regularly.</Alert>
+      <Alert variant="warning">Data is saved only on this phone. Export backups regularly.</Alert>
 
       {message && <Alert>{message}</Alert>}
 
