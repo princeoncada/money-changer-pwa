@@ -48,9 +48,9 @@ export type EncodeDraft = {
   rateInput: string;
 };
 
-export function createEmptyEncodeDraft(): EncodeDraft {
+export function createEmptyEncodeDraft(date = ""): EncodeDraft {
   return {
-    date: loadAppPreferences().encodeDate,
+    date,
     customerName: "",
     orNumber: "",
     currency: "USD",
@@ -154,6 +154,16 @@ export function TransactionForm({ draft, onDraftChange, editingRecord, onSaved, 
     setRateInput("");
   }, [editingRecord]);
 
+  useEffect(() => {
+    if (editingRecord) return;
+    if (draft.date) return;
+
+    onDraftChange({
+      ...draft,
+      date: loadAppPreferences().encodeDate || todayLocal()
+    });
+  }, [draft, editingRecord, onDraftChange]);
+
   const activeForm = useMemo(
     () => (editingRecord ? form : draftToInput(draft)),
     [draft, editingRecord, form]
@@ -242,7 +252,7 @@ export function TransactionForm({ draft, onDraftChange, editingRecord, onSaved, 
   }
 
   function clearDraft() {
-    onDraftChange(createEmptyEncodeDraft());
+    onDraftChange(createEmptyEncodeDraft(loadAppPreferences().encodeDate || todayLocal()));
     setWarnings([]);
     setCustomerComboboxOpen(false);
   }
@@ -267,7 +277,7 @@ export function TransactionForm({ draft, onDraftChange, editingRecord, onSaved, 
 
     setExistingRecords(await transactionRouter.exportAll());
     if (!wasEditing) {
-      onDraftChange(createEmptyEncodeDraft());
+      onDraftChange(createEmptyEncodeDraft(loadAppPreferences().encodeDate || todayLocal()));
     }
     setForm(emptyInput());
     setCurrencyAmountInput("");
