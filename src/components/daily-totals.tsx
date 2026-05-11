@@ -1,6 +1,6 @@
 "use client";
 
-import { Info } from "lucide-react";
+import { FileText, Info } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -63,6 +63,25 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
     0
   );
   const hasPendingIncome = incomeReports.some((report) => report.unmatchedSellAmount > 0);
+
+  const generatedAt = new Date().toLocaleString();
+
+  const dateRangeLabel =
+    dateFilter.from && dateFilter.to
+      ? `${dateFilter.from} to ${dateFilter.to}`
+      : dateFilter.from
+        ? `From ${dateFilter.from}`
+        : dateFilter.to
+          ? `Until ${dateFilter.to}`
+          : "All dates";
+
+  const currencyFilterLabel =
+    selectedCurrencies.length > 0 ? selectedCurrencies.join(", ") : "All currencies";
+
+  function printReport() {
+    window.print();
+  }
+
   const netCashFlowHelper =
     netCashFlow < 0
       ? "More PHP was spent buying foreign currency than received from selling in this period."
@@ -84,6 +103,16 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
   return (
     <div className="space-y-4">
       <DateRangeFilter value={dateFilter} onChange={setTotalsDateFilter} />
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={printReport}
+        className="print:hidden"
+      >
+        <FileText className="mr-2 h-4 w-4" />
+        Save / Print PDF
+      </Button>
 
       <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between gap-3">
@@ -218,6 +247,97 @@ export function DailyTotals({ refreshKey }: { refreshKey: number }) {
             )}
           </TabsContent>
         </Tabs>
+      </section>
+
+      <section className="print-report hidden print:block">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Alshizamin Money Changer</h1>
+          <p className="text-lg font-semibold">FX Totals Report</p>
+          <p>Date Range: {dateRangeLabel}</p>
+          <p>Generated: {generatedAt}</p>
+          <p>
+            Currency Filter:{" "}
+            {selectedCurrencies.length > 0 ? selectedCurrencies.join(", ") : "All currencies"}
+          </p>
+        </div>
+
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <div>Total Records: {filteredRecords.length}</div>
+          <div>BUY Records: {totals.totalBuyRecords}</div>
+          <div>SELL Records: {totals.totalSellRecords}</div>
+          <div>Total BUY PHP: {formatPeso(totals.totalBuyPhp)}</div>
+          <div>Total SELL PHP: {formatPeso(totals.totalSellPhp)}</div>
+          <div>Net PHP Cash Flow: {formatPeso(netCashFlow)}</div>
+          <div>Total Estimated Income: {formatPeso(totalEstimatedIncome)}</div>
+        </div>
+
+        <h2 className="mb-2 text-lg font-bold">Currency Totals</h2>
+        <table className="mb-6 w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th>Currency</th>
+              <th>Bought Amount</th>
+              <th>Sold Amount</th>
+              <th>BUY PHP</th>
+              <th>SELL PHP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {totals.byCurrency.map((currency) => (
+              <tr key={currency.currency}>
+                <td>{currency.currency}</td>
+                <td>{formatForeignCurrencyAmount(currency.boughtAmount, currency.currency)}</td>
+                <td>{formatForeignCurrencyAmount(currency.soldAmount, currency.currency)}</td>
+                <td>{formatPeso(currency.buyTotalPhp)}</td>
+                <td>{formatPeso(currency.sellTotalPhp)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <h2 className="mb-2 text-lg font-bold">Income Report</h2>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th>Currency</th>
+              <th>Total Bought</th>
+              <th>Total Sold</th>
+              <th>Avg Buy Rate</th>
+              <th>Avg Sell Rate</th>
+              <th>Matched Sold</th>
+              <th>Estimated Income</th>
+              <th>Unmatched Buy</th>
+              <th>Unmatched Sell</th>
+            </tr>
+          </thead>
+          <tbody>
+            {incomeReports.map((report) => (
+              <tr key={report.currency}>
+                <td>{report.currency}</td>
+                <td>{formatForeignCurrencyAmount(report.totalBoughtAmount, report.currency)}</td>
+                <td>{formatForeignCurrencyAmount(report.totalSoldAmount, report.currency)}</td>
+                {report.averageBuyRate === null ? (
+                  <td>Pending</td>
+                ) : (
+                  <td>{formatRate(report.averageBuyRate)}</td>
+                )}
+                {report.averageSellRate === null ? (
+                  <td>Pending</td>
+                ) : (
+                  <td>{formatRate(report.averageSellRate)}</td>
+                )}
+                <td>{formatForeignCurrencyAmount(report.matchedSoldAmount, report.currency)}</td>
+                <td>
+                  {report.estimatedIncomePhp === null
+                    ? "Pending"
+                    : formatPeso(report.estimatedIncomePhp)}
+                </td>
+                <td>{formatForeignCurrencyAmount(report.unmatchedBuyAmount, report.currency)}</td>
+                <td>{formatForeignCurrencyAmount(report.unmatchedSellAmount, report.currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </div>
   );
